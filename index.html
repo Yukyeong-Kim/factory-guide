@@ -30,10 +30,10 @@ body {
     width:100%;
 }
 
-/* ✅ 트럭 작게 */
+/* ✅ ✅ ✅ 트럭 절반 크기 */
 .truck {
     position:absolute;
-    font-size:18px;
+    font-size:9px;  /* ⭐ 핵심 변경 */
     transform: translate(-50%, -50%);
     transition: all 0.3s ease;
 }
@@ -61,7 +61,7 @@ GPS 확인 중...
 </div>
 
 <div class="map-box">
-    <img src="factory_map.png">
+    factory_map.png
 
     <div id="truck" class="truck">🚚</div>
     <div id="pin" class="pin">📍</div>
@@ -72,7 +72,7 @@ const truck = document.getElementById("truck");
 const pin = document.getElementById("pin");
 const statusBox = document.getElementById("statusBox");
 
-/* ✅ 경로 (정확 좌표 유지) */
+/* ✅ 경로 */
 const route = [
     {lat:36.9925492, lon:126.3695483, x:90, y:350, msg:"직진하세요"},
     {lat:36.9944902, lon:126.3745901, x:150, y:260, msg:"직진하세요"},
@@ -100,7 +100,7 @@ function gpsToMap(lat, lon){
     };
 }
 
-/* ✅ ✅ ✅ 핵심: 경로에 붙이기 */
+/* ✅ snap */
 function snapToRoute(p){
 
     let closest = null;
@@ -137,7 +137,7 @@ function moveTruck(x,y){
     truck.style.top = y+"px";
 }
 
-/* ✅ 음성 */
+/* ✅ 음성 안내 */
 function speak(text){
     const msg = new SpeechSynthesisUtterance(text);
     msg.lang = "ko-KR";
@@ -153,18 +153,13 @@ navigator.geolocation.watchPosition(
         const lon = pos.coords.longitude;
 
         const raw = gpsToMap(lat, lon);
-
-        /* ✅ snap 적용 */
         const snapped = snapToRoute(raw);
 
         moveTruck(snapped.x, snapped.y);
 
-        /* ✅ 현재 단계 */
         const step = route[snapped.index];
-
         statusBox.innerText = step.msg;
 
-        /* ✅ 음성 */
         if(step.msg !== lastMsg){
             speak(step.msg);
             lastMsg = step.msg;
@@ -181,3 +176,4 @@ navigator.geolocation.watchPosition(
 
 </body>
 </html>
+``
