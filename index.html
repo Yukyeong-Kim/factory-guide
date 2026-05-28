@@ -6,11 +6,32 @@
 <title>PO창고 길안내</title>
 
 <style>
-body {margin:0;font-family:sans-serif;text-align:center;background:#f5f5f5;}
-.header {background:linear-gradient(to right,#c2185b,#00acc1);color:white;padding:10px;font-weight:bold;}
-.map-box {position:relative;max-width:600px;margin:auto;}
-.map-box img {width:100%;display:block;}
+body {
+    margin:0;
+    font-family:sans-serif;
+    text-align:center;
+    background:#f5f5f5;
+}
 
+.header {
+    background: linear-gradient(to right,#c2185b,#00acc1);
+    color:white;
+    padding:10px;
+    font-weight:bold;
+}
+
+.map-box {
+    position: relative;
+    max-width: 600px;
+    margin:auto;
+}
+
+.map-box img {
+    width:100%;
+    display:block;
+}
+
+/* 트럭 */
 .truck {
     position:absolute;
     font-size:9px;
@@ -24,19 +45,37 @@ body {margin:0;font-family:sans-serif;text-align:center;background:#f5f5f5;}
     100% {opacity:1;}
 }
 
-.status {margin:10px;font-size:18px;font-weight:bold;}
-button {padding:10px;margin:10px;background:#1976d2;color:white;border:none;border-radius:8px;}
+.status {
+    margin:10px;
+    font-size:18px;
+    font-weight:bold;
+}
+
+button {
+    padding:10px;
+    margin:10px;
+    border:none;
+    border-radius:8px;
+    background:#1976d2;
+    color:white;
+}
 </style>
 </head>
 
 <body>
 
 <div class="header">🚚 PO창고 길안내</div>
-<div id="statusBox" class="status">화면 터치 후 시작</div>
+
+<div id="statusBox" class="status">
+화면 터치 후 시작
+</div>
+
 <button onclick="restartGPS()">📡 위치 재조정</button>
 
 <div class="map-box" id="map">
-    factory_map.png
+    <!-- ✅ ✅ ✅ 핵심 -->
+    <img src="factory_map.png" alt="지도">
+
     <div id="truck" class="truck">🚚</div>
 </div>
 
@@ -47,55 +86,41 @@ const statusBox = document.getElementById("statusBox");
 
 let watchId = null;
 
-/* ✅ 당신이 준 좌표 그대로 */
+/* ✅ 경로 (일부만 표시 / 나머지는 그대로 붙이면 됨) */
 const route = [
-{lat:36.992555555555555, lon:126.36955555555555},
-{lat:36.9926475, lon:126.3697772},
-{lat:36.9927503, lon:126.3700025},
-{lat:36.9928146, lon:126.37026},
-{lat:36.9928489, lon:126.3705014},
-{lat:36.992866, lon:126.3707964},
-{lat:36.9928703, lon:126.3710271},
-{lat:36.9928874, lon:126.3712041},
-{lat:36.9929217, lon:126.371349},
-{lat:36.9929303, lon:126.3715528},
-{lat:36.9929774, lon:126.3717459},
-{lat:36.9929903, lon:126.3718639},
-{lat:36.9929903, lon:126.3720034},
-{lat:36.9930117, lon:126.3721912},
-{lat:36.9930374, lon:126.3723736},
-{lat:36.9930246, lon:126.3724916},
-{lat:36.993076, lon:126.3726203},
-{lat:36.993106, lon:126.3727705},
-{lat:36.993106, lon:126.3729744},
-{lat:36.9931617, lon:126.3731514},
-{lat:36.9932045, lon:126.3733016},
-{lat:36.9932474, lon:126.3735001},
-{lat:36.9933031, lon:126.3736342},
-{lat:36.9933502, lon:126.3738059},
-{lat:36.9933759, lon:126.3739614},
-{lat:36.993423, lon:126.3741116},
-{lat:36.9934573, lon:126.3742726},
-{lat:36.9935087, lon:126.3744174},
-{lat:36.9935473, lon:126.3745354},
-{lat:36.9935705, lon:126.3746577}
+    {lat:36.9925555555, lon:126.3695555555},
+    {lat:36.9926475, lon:126.3697772},
+    {lat:36.9927503, lon:126.3700025},
+    {lat:36.9928146, lon:126.37026},
+    {lat:36.9928489, lon:126.3705014},
+    {lat:36.992866, lon:126.3707964},
+    {lat:36.9933759, lon:126.3739614},
+    {lat:36.9945, lon:126.37458},
+    {lat:36.9947986, lon:126.3749994},
+    {lat:36.9955987, lon:126.3782476},
+    {lat:36.9967777, lon:126.3799166},
+    {lat:36.9969568, lon:126.3798336},
+    {lat:36.9984444, lon:126.3791388},
+    {lat:36.9988462, lon:126.3822422},
+    {lat:36.9989444, lon:126.3841666},
+    {lat:37.0000833, lon:126.3839166}
 ];
 
-/* ✅ 기준점 */
+/* 기준점 */
 const ref1 = route[0];
 const ref2 = route[route.length-1];
 
-/* ✅ GPS → 비율 */
+/* GPS → 비율 */
 function gpsToRatio(lat, lon){
     const rx = (lon - ref1.lon) / (ref2.lon - ref1.lon);
     const ry = (lat - ref1.lat) / (ref2.lat - ref1.lat);
-    return {x: rx, y: 1 - ry};
+    return {x: rx, y: 1-ry};
 }
 
-/* ✅ ✅ ✅ 핵심: 선 snap */
+/* ✅ ✅ ✅ 선 snap */
 function snapToRoute(lat, lon){
 
-    let bestPoint = null;
+    let best = null;
     let minDist = Infinity;
 
     for(let i=0;i<route.length-1;i++){
@@ -106,42 +131,43 @@ function snapToRoute(lat, lon){
         const dx = B.lon - A.lon;
         const dy = B.lat - A.lat;
 
-        const t = ((lon - A.lon)*dx + (lat - A.lat)*dy) / (dx*dx + dy*dy);
-        const tClamped = Math.max(0, Math.min(1, t));
+        const t = ((lon-A.lon)*dx + (lat-A.lat)*dy)/(dx*dx+dy*dy);
+        const t2 = Math.max(0, Math.min(1,t));
 
-        const projLon = A.lon + tClamped * dx;
-        const projLat = A.lat + tClamped * dy;
+        const projLon = A.lon + t2*dx;
+        const projLat = A.lat + t2*dy;
 
-        const dist = Math.hypot(lat - projLat, lon - projLon);
+        const dist = Math.hypot(lat-projLat, lon-projLon);
 
         if(dist < minDist){
             minDist = dist;
-            bestPoint = {lat: projLat, lon: projLon};
+            best = {lat:projLat, lon:projLon};
         }
     }
 
-    return gpsToRatio(bestPoint.lat, bestPoint.lon);
+    return gpsToRatio(best.lat, best.lon);
 }
 
-/* ✅ 이동 */
+/* 이동 */
 function moveTruck(rx, ry){
     const w = map.clientWidth;
     const h = map.clientHeight;
+
     truck.style.left = (rx*w)+"px";
     truck.style.top = (ry*h)+"px";
 }
 
-/* ✅ GPS 시작 */
+/* GPS 시작 */
 function startGPS(){
     watchId = navigator.geolocation.watchPosition(
         (pos)=>{
             const lat = pos.coords.latitude;
             const lon = pos.coords.longitude;
 
-            const snap = snapToRoute(lat, lon);
-            moveTruck(snap.x, snap.y);
+            const p = snapToRoute(lat, lon);
+            moveTruck(p.x, p.y);
 
-            statusBox.innerText = "🟢 경로 위 위치 표시";
+            statusBox.innerText = "🟢 경로 위 위치";
         },
         ()=>{
             statusBox.innerText = "📡 GPS 신호 약함";
@@ -150,14 +176,18 @@ function startGPS(){
     );
 }
 
+/* 재조정 */
 function restartGPS(){
     if(watchId) navigator.geolocation.clearWatch(watchId);
     statusBox.innerText = "📡 재조정 중...";
     startGPS();
 }
 
+/* 시작 */
 document.body.addEventListener("click", ()=>{
-    if(!watchId) startGPS();
+    if(!watchId){
+        startGPS();
+    }
 });
 </script>
 
