@@ -6,91 +6,89 @@
 <title>PO창고 길안내</title>
 
 <style>
-body {margin:0;font-family:sans-serif;text-align:center;background:#f5f5f5;}
-.header {background:linear-gradient(to right,#c2185b,#00acc1);color:white;padding:10px;}
+body {margin:0;text-align:center;background:#f5f5f5;}
 .map-box {position:relative;max-width:600px;margin:auto;}
 .map-box img {width:100%;display:block;}
-
 .truck {
     position:absolute;
-    font-size:9px;
+    font-size:10px;
     transform:translate(-50%,-50%);
     animation:blink 1s infinite;
 }
-
 @keyframes blink {
     0%{opacity:1;}
     50%{opacity:0.2;}
     100%{opacity:1;}
 }
-
-button {
-    margin:10px;
-    padding:10px;
-    background:#1976d2;
-    color:white;
-    border:none;
-    border-radius:8px;
-}
+button {margin:10px;padding:10px;}
 </style>
 </head>
 
 <body>
 
-<div class="header">🚚 PO창고 길안내</div>
 <button onclick="restartGPS()">📡 위치 재조정</button>
 
 <div class="map-box" id="map">
-    <!-- ✅ 이미지 정상 -->
-    <img src="factory_map.png">
+    <img src="factory_map.png" id="mapImg">
     <div id="truck" class="truck">🚚</div>
 </div>
 
 <script>
 const map = document.getElementById("map");
+const img = document.getElementById("mapImg");
 const truck = document.getElementById("truck");
 
-let watchId = null;
+let watchId;
 
-/* ✅ ✅ ✅ 당신 전체 좌표 그대로 사용 */
-const route = [
-{lat:36.992555555555555, lon:126.36955555555555},
-{lat:36.9927503, lon:126.3700025},
-{lat:36.993106, lon:126.3729744},
-{lat:36.9935087, lon:126.3744174},
-{lat:36.9945, lon:126.37458},
-{lat:36.9955987, lon:126.3782476},
-{lat:36.9967777, lon:126.3799166},
-{lat:36.9984444, lon:126.3791388},
-{lat:36.9988462, lon:126.3822422},
-{lat:37.0000833, lon:126.3839166}
-];
+/* ✅ ✅ ✅ 3개 기준점 (반드시 정확히 입력!!) */
 
-/* ✅ 전체 범위 기준 (핵심🔥) */
-const lats = route.map(p=>p.lat);
-const lons = route.map(p=>p.lon);
+/* ✅ 1️⃣ 서문 */
+const p1 = {
+    lat:36.9925555555,
+    lon:126.3695555555,
+    x:0.05,   // 👉 이미지에서 위치 직접 맞춰야 함
+    y:0.96
+};
 
-const minLat = Math.min(...lats);
-const maxLat = Math.max(...lats);
-const minLon = Math.min(...lons);
-const maxLon = Math.max(...lons);
+/* ✅ 2️⃣ 방재실 */
+const p2 = {
+    lat:36.9945,
+    lon:126.37458,
+    x:0.38,
+    y:0.70
+};
+
+/* ✅ 3️⃣ PO창고 */
+const p3 = {
+    lat:37.00008,
+    lon:126.38391,
+    x:0.85,
+    y:0.10
+};
 
 /* ✅ GPS → 화면 좌표 */
-function convertToScreen(lat, lon){
+function gpsToScreen(lat, lon){
 
     const w = map.clientWidth;
     const h = map.clientHeight;
 
-    const x = (lon - minLon) / (maxLon - minLon);
-    const y = (lat - minLat) / (maxLat - minLat);
+    const det = (p2.lon - p1.lon)*(p3.lat - p1.lat) - (p3.lon - p1.lon)*(p2.lat - p1.lat);
+
+    const a = ((lon - p1.lon)*(p3.lat - p1.lat) - (p3.lon - p1.lon)*(lat - p1.lat)) / det;
+    const b = ((p2.lon - p1.lon)*(lat - p1.lat) - (lon - p1.lon)*(p2.lat - p1.lat)) / det;
+
+    const c = 1 - a - b;
+
+    const xRatio = a*p2.x + b*p3.x + c*p1.x;
+    const yRatio = a*p2.y + b*p3.y + c*p1.y;
 
     return {
-        x: x * w,
-        y: (1 - y) * h
+        x: xRatio * w,
+        y: yRatio * h
     };
 }
 
-/* ✅ ✅ ✅ 선 snap */
+/* ✅ 선 snap (그대로 유지) */
 function snapToRoute(lat, lon){
 
     let best = null;
@@ -118,7 +116,7 @@ function snapToRoute(lat, lon){
         }
     }
 
-    return convertToScreen(best.lat, best.lon);
+    return gpsToScreen(best.lat, best.lon);
 }
 
 /* ✅ 이동 */
@@ -129,7 +127,6 @@ function moveTruck(pos){
 
 /* ✅ GPS */
 function startGPS(){
-
     watchId = navigator.geolocation.watchPosition(
         (pos)=>{
             const lat = pos.coords.latitude;
@@ -143,17 +140,13 @@ function startGPS(){
     );
 }
 
-/* ✅ 재시작 */
 function restartGPS(){
     if(watchId) navigator.geolocation.clearWatch(watchId);
     startGPS();
 }
 
-/* ✅ 시작 */
 document.body.addEventListener("click", ()=>{
-    if(!watchId){
-        startGPS();
-    }
+    if(!watchId) startGPS();
 });
 </script>
 
