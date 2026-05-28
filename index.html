@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PO창고 위치 안내</title>
+<title>PO창고 길안내</title>
 
 <style>
 body {
@@ -16,69 +16,48 @@ body {
 .header {
     background: linear-gradient(to right,#c2185b,#00acc1);
     color:white;
-    padding:12px;
+    padding:10px;
     font-weight:bold;
 }
 
-/* ★ 수정: 지도를 감싸는 박스가 트럭과 핀의 절대적인 기준점(relative)이 됩니다 */
 .map-box {
     position: relative;
     max-width: 600px;
-    margin: auto;
-    width: 100%; /* 화면에 맞춰 늘어나고 줄어들게 설정 */
-    display: inline-block;
+    margin:auto;
 }
 
 .map-box img {
     width:100%;
-    height: auto;
-    display: block;
 }
 
-/* 🚚 현재 위치 (★ 수치 단위를 %로 제어할 수 있게 수정) */
+/* ✅ 트럭 작게 */
 .truck {
     position:absolute;
-    font-size:30px;
+    font-size:18px;
     transform: translate(-50%, -50%);
-    transition: all 0.5s ease;
-    z-index: 10;
+    transition: all 0.3s ease;
 }
 
-/* 📍 도착 (★ 수치 단위를 %로 제어할 수 있게 수정) */
 .pin {
     position:absolute;
-    font-size:30px;
-    transform: translate(-50%, -50%);
-    z-index: 5;
+    font-size:25px;
+    transform: translate(-50%,-50%);
 }
 
-/* 상태 표시 */
 .status {
     margin:10px;
-    padding:10px;
     font-weight:bold;
-    border-radius:8px;
-    background:#eee;
-}
-
-.ok {
-    background:#e8f5e9;
-    color:#2e7d32;
-}
-
-.warn {
-    background:#ffebee;
-    color:#c62828;
+    font-size:18px;
 }
 </style>
 </head>
 
 <body>
 
-<div class="header">🚚 PO창고 위치 안내</div>
+<div class="header">🚚 PO창고 길안내</div>
 
-<div id="statusBox" class="status">
-📡 GPS 확인 중...
+<div class="status" id="statusBox">
+GPS 확인 중...
 </div>
 
 <div class="map-box">
@@ -93,113 +72,109 @@ const truck = document.getElementById("truck");
 const pin = document.getElementById("pin");
 const statusBox = document.getElementById("statusBox");
 
-/* ★ 중요 포인트 설명: 
-   유경님이 기존에 따놓으신 x, y 좌표값(가로 600px 기준)을 변경하지 않고 쓰실 수 있도록,
-   코드 내부에서 자동으로 % 연산을 거치도록 수학 식만 살짝 보정했습니다.
-*/
-const BASE_WIDTH = 600; // 기준이 되는 원본 이미지의 가로 폭
-const BASE_HEIGHT = 400; // 원본 이미지의 대략적인 세로 폭 (혹은 이미지의 실제 높이 비율)
-
-/* ✅ 도면 기준 좌표 */
+/* ✅ 경로 (정확 좌표 유지) */
 const route = [
-    {lat:36.9925492, lon:126.3695483, x:90, y:350},
-    {lat:36.9944902, lon:126.3745901, x:150, y:260},
-    {lat:36.9967810, lon:126.3799103, x:270, y:210},
-    {lat:36.9984565, lon:126.3791392, x:310, y:160},
-    {lat:36.9989486, lon:126.3841774, x:430, y:135},
-    {lat:37.0000714, lon:126.3839266, x:470, y:80}
+    {lat:36.9925492, lon:126.3695483, x:90, y:350, msg:"직진하세요"},
+    {lat:36.9944902, lon:126.3745901, x:150, y:260, msg:"직진하세요"},
+    {lat:36.9967810, lon:126.3799103, x:270, y:210, msg:"우회전하세요"},
+    {lat:36.9984565, lon:126.3791392, x:310, y:160, msg:"직진하세요"},
+    {lat:36.9989486, lon:126.3841774, x:430, y:135, msg:"좌회전하세요"},
+    {lat:37.0000714, lon:126.3839266, x:470, y:80, msg:"도착입니다"}
 ];
 
-/* ✅ 도착 위치 */
-const destination = route[route.length-1];
+/* ✅ 목적지 */
+const dest = route[route.length-1];
+pin.style.left = dest.x+"px";
+pin.style.top = dest.y+"px";
 
-/* ★ 수정: px 대신 전체 이미지 가로/세로 대비 % 비율로 핀을 배치합니다 */
-pin.style.left = (destination.x / BASE_WIDTH * 100) + "%";
-pin.style.top = (destination.y / BASE_WIDTH * 100) + "%"; 
-
-/* ✅ GPS 변환 기준 */
+/* ✅ GPS → 지도 변환 */
 const ref1 = route[0];
 const ref2 = route[route.length-1];
 
-/* ✅ GPS → 지도 변환 */
 function gpsToMap(lat, lon){
-    const ratioX = (lon - ref1.lon) / (ref2.lon - ref1.lon);
-    const ratioY = (lat - ref1.lat) / (ref2.lat - ref1.lat);
-
-    const x = ref1.x + ratioX * (ref2.x - ref1.x);
-    const y = ref1.y - ratioY * (ref1.y - ref2.y);
-
-    return {x, y};
+    const rx = (lon - ref1.lon) / (ref2.lon - ref1.lon);
+    const ry = (lat - ref1.lat) / (ref2.lat - ref1.lat);
+    return {
+        x: ref1.x + rx*(ref2.x-ref1.x),
+        y: ref1.y - ry*(ref1.y-ref2.y)
+    };
 }
 
-/* ★ 수정: 화면이 줄어들어도 비율을 유지하도록 px 단위를 % 단위로 변환하여 적용 */
-function moveTruck(x, y){
-    truck.style.left = (x / BASE_WIDTH * 100) + "%";
-    truck.style.top = (y / BASE_WIDTH * 100) + "%";
+/* ✅ ✅ ✅ 핵심: 경로에 붙이기 */
+function snapToRoute(p){
+
+    let closest = null;
+    let minDist = Infinity;
+
+    for(let i=0; i<route.length-1; i++){
+
+        const a = route[i];
+        const b = route[i+1];
+
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+
+        const t = ((p.x-a.x)*dx + (p.y-a.y)*dy) / (dx*dx + dy*dy);
+        const t2 = Math.max(0, Math.min(1, t));
+
+        const x = a.x + dx*t2;
+        const y = a.y + dy*t2;
+
+        const dist = Math.hypot(p.x-x, p.y-y);
+
+        if(dist < minDist){
+            minDist = dist;
+            closest = {x,y,index:i};
+        }
+    }
+
+    return closest;
 }
 
-/* ✅ 경로 근접 체크 */
-function isNearRoute(current){
-    let min = 9999;
-
-    route.forEach(p=>{
-        const d = Math.sqrt(
-            (current.x - p.x)**2 +
-            (current.y - p.y)**2
-        );
-        if(d < min) min = d;
-    });
-
-    return min < 60;
+/* ✅ 이동 */
+function moveTruck(x,y){
+    truck.style.left = x+"px";
+    truck.style.top = y+"px";
 }
 
-/* ✅ 도착 체크 */
-function isArrived(current){
-    const d = Math.sqrt(
-        (current.x - destination.x)**2 +
-        (current.y - destination.y)**2
-    );
-    return d < 40;
+/* ✅ 음성 */
+function speak(text){
+    const msg = new SpeechSynthesisUtterance(text);
+    msg.lang = "ko-KR";
+    speechSynthesis.speak(msg);
 }
 
-/* ✅ GPS 타임아웃 처리 */
-let gpsTimeout = setTimeout(()=>{
-    statusBox.innerText = "📡 GPS 신호가 약합니다\n실외에서 다시 시도해주세요";
-    statusBox.className = "status warn";
-}, 8000);
+let lastMsg = "";
 
 /* ✅ GPS */
 navigator.geolocation.watchPosition(
     (pos)=>{
-        clearTimeout(gpsTimeout);
-
         const lat = pos.coords.latitude;
         const lon = pos.coords.longitude;
 
-        const p = gpsToMap(lat, lon);
-        moveTruck(p.x, p.y);
+        const raw = gpsToMap(lat, lon);
 
-        if(isArrived(p)){
-            statusBox.innerText = "✅ 목적지 도착";
-            statusBox.className = "status ok";
-        }
-        else if(isNearRoute(p)){
-            statusBox.innerText = "🟢 정상 경로 이동 중";
-            statusBox.className = "status ok";
-        }
-        else{
-            statusBox.innerText = "🔴 경로에서 벗어났습니다";
-            statusBox.className = "status warn";
+        /* ✅ snap 적용 */
+        const snapped = snapToRoute(raw);
+
+        moveTruck(snapped.x, snapped.y);
+
+        /* ✅ 현재 단계 */
+        const step = route[snapped.index];
+
+        statusBox.innerText = step.msg;
+
+        /* ✅ 음성 */
+        if(step.msg !== lastMsg){
+            speak(step.msg);
+            lastMsg = step.msg;
         }
     },
-    (err)=>{
-        statusBox.innerText = "📡 GPS 신호가 약합니다\n실외에서 다시 시도해주세요";
-        statusBox.className = "status warn";
+    ()=>{
+        statusBox.innerText = "📡 GPS 신호가 약합니다";
     },
     {
-        enableHighAccuracy:true,
-        timeout:8000,
-        maximumAge:0
+        enableHighAccuracy:true
     }
 );
 </script>
