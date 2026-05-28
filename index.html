@@ -20,6 +20,7 @@ body {
     font-weight:bold;
 }
 
+/* 지도 */
 .map-box {
     position: relative;
     max-width: 600px;
@@ -28,26 +29,27 @@ body {
 
 .map-box img {
     width:100%;
+    display:block;
 }
 
-/* ✅ ✅ ✅ 트럭 절반 크기 */
+/* ✅ 트럭 (절반 크기) */
 .truck {
     position:absolute;
-    font-size:9px;  /* ⭐ 핵심 변경 */
-    transform: translate(-50%, -50%);
-    transition: all 0.3s ease;
+    font-size:9px;
+    transform: translate(-50%,-50%);
 }
 
+/* 도착 핀 */
 .pin {
     position:absolute;
-    font-size:25px;
+    font-size:24px;
     transform: translate(-50%,-50%);
 }
 
 .status {
     margin:10px;
-    font-weight:bold;
     font-size:18px;
+    font-weight:bold;
 }
 </style>
 </head>
@@ -56,44 +58,55 @@ body {
 
 <div class="header">🚚 PO창고 길안내</div>
 
-<div class="status" id="statusBox">
-GPS 확인 중...
+<div id="statusBox" class="status">
+화면 터치 후 시작
 </div>
 
-<div class="map-box">
-    factory_map.png
+<div class="map-box" id="map">
+
+    <!-- ✅ ✅ ✅ 이게 핵심 (이미지 정상 표시) -->
+    <img src="factory_map.png" id="mapImg">
 
     <div id="truck" class="truck">🚚</div>
     <div id="pin" class="pin">📍</div>
 </div>
 
 <script>
+const map = document.getElementById("map");
+const img = document.getElementById("mapImg");
 const truck = document.getElementById("truck");
 const pin = document.getElementById("pin");
 const statusBox = document.getElementById("statusBox");
 
-/* ✅ 경로 */
+/* ✅ 비율 좌표 */
 const route = [
-    {lat:36.9925492, lon:126.3695483, x:90, y:350, msg:"직진하세요"},
-    {lat:36.9944902, lon:126.3745901, x:150, y:260, msg:"직진하세요"},
-    {lat:36.9967810, lon:126.3799103, x:270, y:210, msg:"우회전하세요"},
-    {lat:36.9984565, lon:126.3791392, x:310, y:160, msg:"직진하세요"},
-    {lat:36.9989486, lon:126.3841774, x:430, y:135, msg:"좌회전하세요"},
-    {lat:37.0000714, lon:126.3839266, x:470, y:80, msg:"도착입니다"}
+    {lat:36.9925492, lon:126.3695483, x:0.15, y:0.85, msg:"직진하세요"},
+    {lat:36.9944902, lon:126.3745901, x:0.25, y:0.65, msg:"직진하세요"},
+    {lat:36.9967810, lon:126.3799103, x:0.45, y:0.55, msg:"우회전하세요"},
+    {lat:36.9984565, lon:126.3791392, x:0.52, y:0.45, msg:"직진하세요"},
+    {lat:36.9989486, lon:126.3841774, x:0.72, y:0.40, msg:"좌회전하세요"},
+    {lat:37.0000714, lon:126.3839266, x:0.78, y:0.20, msg:"도착입니다"}
 ];
 
 /* ✅ 목적지 */
-const dest = route[route.length-1];
-pin.style.left = dest.x+"px";
-pin.style.top = dest.y+"px";
+function setPin(){
+    const w = map.clientWidth;
+    const h = map.clientHeight;
 
-/* ✅ GPS → 지도 변환 */
+    const dest = route[route.length-1];
+
+    pin.style.left = (dest.x * w) + "px";
+    pin.style.top = (dest.y * h) + "px";
+}
+
+/* ✅ GPS 변환 */
 const ref1 = route[0];
 const ref2 = route[route.length-1];
 
-function gpsToMap(lat, lon){
+function gpsToRatio(lat, lon){
     const rx = (lon - ref1.lon) / (ref2.lon - ref1.lon);
     const ry = (lat - ref1.lat) / (ref2.lat - ref1.lat);
+
     return {
         x: ref1.x + rx*(ref2.x-ref1.x),
         y: ref1.y - ry*(ref1.y-ref2.y)
@@ -106,7 +119,7 @@ function snapToRoute(p){
     let closest = null;
     let minDist = Infinity;
 
-    for(let i=0; i<route.length-1; i++){
+    for(let i=0;i<route.length-1;i++){
 
         const a = route[i];
         const b = route[i+1];
@@ -114,8 +127,8 @@ function snapToRoute(p){
         const dx = b.x - a.x;
         const dy = b.y - a.y;
 
-        const t = ((p.x-a.x)*dx + (p.y-a.y)*dy) / (dx*dx + dy*dy);
-        const t2 = Math.max(0, Math.min(1, t));
+        const t = ((p.x-a.x)*dx + (p.y-a.y)*dy)/(dx*dx+dy*dy);
+        const t2 = Math.max(0, Math.min(1,t));
 
         const x = a.x + dx*t2;
         const y = a.y + dy*t2;
@@ -127,37 +140,52 @@ function snapToRoute(p){
             closest = {x,y,index:i};
         }
     }
-
     return closest;
 }
 
 /* ✅ 이동 */
-function moveTruck(x,y){
-    truck.style.left = x+"px";
-    truck.style.top = y+"px";
+function moveTruck(rx, ry){
+    const w = map.clientWidth;
+    const h = map.clientHeight;
+
+    truck.style.left = (rx * w) + "px";
+    truck.style.top = (ry * h) + "px";
 }
 
-/* ✅ 음성 안내 */
+/* ✅ 음성 */
 function speak(text){
     const msg = new SpeechSynthesisUtterance(text);
     msg.lang = "ko-KR";
     speechSynthesis.speak(msg);
 }
 
+let started = false;
 let lastMsg = "";
 
+/* ✅ 첫 터치 */
+document.body.addEventListener("click", ()=>{
+    if(!started){
+        started = true;
+        statusBox.innerText = "GPS 시작";
+        setPin();
+        startGPS();
+    }
+});
+
 /* ✅ GPS */
+function startGPS(){
 navigator.geolocation.watchPosition(
     (pos)=>{
+
         const lat = pos.coords.latitude;
         const lon = pos.coords.longitude;
 
-        const raw = gpsToMap(lat, lon);
-        const snapped = snapToRoute(raw);
+        const raw = gpsToRatio(lat, lon);
+        const snap = snapToRoute(raw);
 
-        moveTruck(snapped.x, snapped.y);
+        moveTruck(snap.x, snap.y);
 
-        const step = route[snapped.index];
+        const step = route[snap.index];
         statusBox.innerText = step.msg;
 
         if(step.msg !== lastMsg){
@@ -166,12 +194,11 @@ navigator.geolocation.watchPosition(
         }
     },
     ()=>{
-        statusBox.innerText = "📡 GPS 신호가 약합니다";
+        statusBox.innerText = "📡 GPS 신호 약함";
     },
-    {
-        enableHighAccuracy:true
-    }
+    {enableHighAccuracy:true}
 );
+}
 </script>
 
 </body>
