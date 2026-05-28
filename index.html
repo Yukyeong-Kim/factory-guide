@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PO창고 위치 안내</title>
+
+<style>
+body {
+    margin:0;
+    font-family:sans-serif;
+    text-align:center;
+    background:#f5f5f5;
+}
+
+.header {
+    background: linear-gradient(to right,#c2185b,#00acc1);
+    color:white;
+    padding:12px;
+    font-weight:bold;
+}
+
+.map-box {
+    position: relative;
+    max-width: 600px;
+    margin:auto;
+}
+
+.map-box img {
+    width:100%;
+}
+
+/* 🚚 현재 위치 */
+.truck {
+    position:absolute;
+    font-size:30px;
+    transform: translate(-50%, -50%);
+    transition: all 0.5s ease;
+}
+
+/* 📍 도착 */
+.pin {
+    position:absolute;
+    font-size:30px;
+    transform: translate(-50%, -50%);
+}
+
+/* 상태 표시 */
+.status {
+    margin:10px;
+    padding:10px;
+    font-weight:bold;
+    border-radius:8px;
+    background:#eee;
+}
+
+.ok {
+    background:#e8f5e9;
+    color:#2e7d32;
+}
+
+.warn {
+    background:#ffebee;
+    color:#c62828;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">🚚 PO창고 위치 안내</div>
+
+<div id="statusBox" class="status">
+📡 GPS 확인 중...
+</div>
+
+<div class="map-box">
+    <!-- ✅ 반드시 img 태그 -->
+    <img src="factory_map.png">
+
+    <div id="truck" class="truck">🚚</div>
+    <div id="pin" class="pin">📍</div>
+</div>
+
+<script>
+const truck = document.getElementById("truck");
+const pin = document.getElementById("pin");
+const statusBox = document.getElementById("statusBox");
+
+/* ✅ 도면 기준 좌표 */
+const route = [
+    {lat:36.9925492, lon:126.3695483, x:90, y:350},
+    {lat:36.9944902, lon:126.3745901, x:150, y:260},
+    {lat:36.9967810, lon:126.3799103, x:270, y:210},
+    {lat:36.9984565, lon:126.3791392, x:310, y:160},
+    {lat:36.9989486, lon:126.3841774, x:430, y:135},
+    {lat:37.0000714, lon:126.3839266, x:470, y:80}
+];
+
+/* ✅ 도착 위치 */
+const destination = route[route.length-1];
+
+/* ✅ 도착 핀 표시 */
+pin.style.left = destination.x + "px";
+pin.style.top = destination.y + "px";
+
+/* ✅ GPS 변환 기준 */
+const ref1 = route[0];
+const ref2 = route[route.length-1];
+
+/* ✅ GPS → 지도 변환 */
+function gpsToMap(lat, lon){
+    const ratioX = (lon - ref1.lon) / (ref2.lon - ref1.lon);
+    const ratioY = (lat - ref1.lat) / (ref2.lat - ref1.lat);
+
+    const x = ref1.x + ratioX * (ref2.x - ref1.x);
+    const y = ref1.y - ratioY * (ref1.y - ref2.y);
+
+    return {x, y};
+}
+
+/* ✅ 위치 이동 */
+function moveTruck(x,y){
+    truck.style.left = x+"px";
+    truck.style.top = y+"px";
+}
+
+/* ✅ 경로 근접 체크 */
+function isNearRoute(current){
+    let min = 9999;
+
+    route.forEach(p=>{
+        const d = Math.sqrt(
+            (current.x - p.x)**2 +
+            (current.y - p.y)**2
+        );
+        if(d < min) min = d;
+    });
+
+    return min < 60;
+}
+
+/* ✅ 도착 체크 */
+function isArrived(current){
+    const d = Math.sqrt(
+        (current.x - destination.x)**2 +
+        (current.y - destination.y)**2
+    );
+    return d < 40;
+}
+
+/* ✅ GPS 타임아웃 처리 */
+let gpsTimeout = setTimeout(()=>{
+    statusBox.innerText = "📡 GPS 신호가 약합니다\n실외에서 다시 시도해주세요";
+    statusBox.className = "status warn";
+}, 8000);
+
+/* ✅ GPS */
+navigator.geolocation.watchPosition(
+    (pos)=>{
+        clearTimeout(gpsTimeout);
+
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+
+        const p = gpsToMap(lat, lon);
+        moveTruck(p.x, p.y);
+
+        if(isArrived(p)){
+            statusBox.innerText = "✅ 목적지 도착";
+            statusBox.className = "status ok";
+        }
+        else if(isNearRoute(p)){
+            statusBox.innerText = "🟢 정상 경로 이동 중";
+            statusBox.className = "status ok";
+        }
+        else{
+            statusBox.innerText = "🔴 경로에서 벗어났습니다";
+            statusBox.className = "status warn";
+        }
+    },
+    (err)=>{
+        statusBox.innerText = "📡 GPS 신호가 약합니다\n실외에서 다시 시도해주세요";
+        statusBox.className = "status warn";
+    },
+    {
+        enableHighAccuracy:true,
+        timeout:8000,
+        maximumAge:0
+    }
+);
+</script>
+
+</body>
+</html>
